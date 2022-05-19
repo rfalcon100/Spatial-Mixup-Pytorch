@@ -18,6 +18,7 @@ import utils
 import spaudiopy as spa
 from sphere_fibonacci_grid_points import sphere_fibonacci_grid_points
 
+
 def plot_fft(signal: torch.Tensor, fs: int, title: str ='Frequency Response'):
     '''Plots the frequency response (magnitude) of a signal. '''
     assert len(signal.shape) == 2, 'The signal should be [channels, timesteps] for plotting.'
@@ -71,14 +72,38 @@ def plot_waveform(waveform: torch.Tensor, sample_rate: int, title: str = "Wavefo
 
 
 def plot_3dpoints(points: torch.Tensor, title: str = 'Grid of points', 
-                  xlim: List = None, ylum : List = None, zlim : List = None):
+                  xlim: List = None, ylim : List = None, zlim : List = None, fig=None):
     """Plots a 3d scatter of poits. USeful to look at sampling of a sphere or similar."""
     assert points.shape[1] == 3, 'The points should be in format [n, 3]'
     
-    fig = plt.figure()
+    if fig is None:
+        fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
     for row in range(points.shape[0]):
         ax.scatter(points[row, 0], points[row, 1], points[row, 2])
+        
+    # Draw axis lines
+    x0 = np.array([1, 0, 0])
+    y0 = np.array([0, 1, 0])
+    z0 = np.array([0, 0, 1])
+    for i in range(3):
+        ax.plot([-x0[i], x0[i]], [-y0[i], y0[i]], [-z0[i], z0[i]], '--k',
+                alpha=0.3)
+    # Formatting
+    if xlim is not None:
+        ax.set_xlim(xlim)
+    if ylim is not None:
+        ax.set_ylim(ylim)
+    if zlim is not None:
+        ax.set_zlim(zlim)
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    ax.set_xticks([-1, -0.5, 0, 0.5, 1])
+    ax.set_yticks([-1, -0.5, 0, 0.5, 1])
+    ax.set_zticks([-1, -0.5, 0, 0.5, 1])
+    ax.view_init(30, 45)
+
     fig.suptitle(title)
     plt.show()
 
@@ -387,10 +412,12 @@ def _plot_polar(theta, r, INDB=True, rlim=None, title=None, ax=None, plot_elevat
         ax.set_title(title)
 
 
-def plot_transform_matrix(matrix_t: torch.Tensor, indb=True, title=None, xlabel='Input', ylabel='Output'):
+def plot_transform_matrix(matrix_t: torch.Tensor, indb=True, title=None, xlabel='Input', ylabel='Output', clamp_db_value=-50):
+    """ Simple function to plot a 2d matrix. Useful to visuzalize the directional gain matrix G, or the 
+    full transformation matrix T. """
     if indb:
         matrix_t = 20 * torch.log10(matrix_t)
-        matrix_t = torch.clamp(matrix_t, -50, 0)
+        matrix_t = torch.clamp(matrix_t, clamp_db_value, 0)
     #T = bb * scale
     #T = 20 * torch.log10(T)
     #T = torch.clamp(T, -50, 0)
@@ -477,8 +504,8 @@ def plot_labels(labels: Union[torch.Tensor, np.ndarray], n_classes: Union[int, L
 
 
 
-def sh_rms_map(F_nm, INDB=False, w_n=None, SH_type=None, azi_steps=5,
-               zen_steps=3, title=None, fig=None, vmin=None, vmax=None, return_values=False):
+def sh_rms_map(F_nm, INDB=False, w_n=None, SH_type=None, azi_steps=5, zen_steps=3, 
+               title=None, fig=None, vmin=None, vmax=None, return_values=False):
     """Plot spherical harmonic signal RMS as function on the sphere.
     
     Evaluates the maxDI beamformer, if w_n is None.
@@ -527,7 +554,7 @@ def sh_rms_map(F_nm, INDB=False, w_n=None, SH_type=None, azi_steps=5,
         fig = plt.figure(constrained_layout=True)
     ax = fig.gca()
     ax.set_aspect('equal')
-
+    
     if vmin is not None and vmax is not None:
         p = ax.pcolormesh(azi_plot, zen_plot, np.reshape(rms_d, azi_plot.shape), shading='auto', vmin=vmin, vmax=vmax)
         
@@ -547,11 +574,89 @@ def sh_rms_map(F_nm, INDB=False, w_n=None, SH_type=None, azi_steps=5,
 
     plt.axhline(y=np.pi/2, color='grey', linestyle=':')
     plt.axvline(color='grey', linestyle=':')
-    
+
     plt.xticks([np.pi, np.pi/2, 0, -np.pi/2, -np.pi], 
                labels=[r"$\pi$", r"$\pi/2$", r"$0$", r"$-\pi/2$", r"$-\pi$"])
     plt.yticks([0, np.pi/2, np.pi],
                labels=[r"$0$", r"$\pi/2$", r"$\pi$", ])
+    
+    cb = plt.colorbar(p, ax=ax, shrink=0.5)
+    cb.set_label("RMS in dB" if INDB else "RMS")
+    if title is not None:
+        ax.set_title(title)
+        
+    if return_values:
+        return np.min(rms_d), np.max(rms_d)
+    
+
+def sh_rms_map_mollweide(F_nm, INDB=False, w_n=None, SH_type=None, azi_steps=5, zen_steps=3, 
+               title=None, fig=None, vmin=None, vmax=None, return_values=False):
+    """Plot spherical harmonic signal RMS as function on the sphere, as a mollweide map
+    
+    Evaluates the maxDI beamformer, if w_n is None.
+    
+    NOTE: Adapted from spaudiopy, but added parameter for the colrobar min 
+    and max. It also returns the min and max rms values optionally.
+    
+    NOTE: The Mollweide plot has the x (longitude) axis ticks fixed , and they dont follow
+    the same convention as we do here. So I do a fake rotation just for that.
+    
+    Parameters
+    ----------
+    F_nm : ((N+1)**2, S) numpy.ndarray
+        Matrix of spherical harmonics coefficients, Ambisonic signal.
+    INDB : bool
+        Plot in dB.
+    w_n : array_like
+        Modal weighting of beamformers that are evaluated on the grid.
+    SH_type :  'complex' or 'real' spherical harmonics.
+
+    Examples
+    --------
+    See :py:mod:`spaudiopy.sph.src_to_sh`
+
+    """
+    F_nm = np.atleast_2d(F_nm)
+    assert(F_nm.ndim == 2)
+    if SH_type is None:
+        SH_type = 'complex' if np.iscomplexobj(F_nm) else 'real'
+    N_sph = int(np.sqrt(F_nm.shape[0]) - 1)
+    
+    azi_steps = np.deg2rad(azi_steps)
+    zen_steps = np.deg2rad(zen_steps)
+    azi_plot, zen_plot = np.meshgrid(np.arange(np.pi, -(np.pi + azi_steps),
+                                                 -azi_steps),
+                                       np.arange(10e-3, np.pi + zen_steps,
+                                                 zen_steps))
+    
+    # Fake rotation to plot the correct azimuth in the projection
+    azi_plot_plot, zen_plot_plot = np.meshgrid(np.arange(-np.pi, (np.pi + azi_steps),
+                                             azi_steps),
+                                   np.arange(10e-3, np.pi + zen_steps,
+                                             zen_steps))
+    zen_plot_plot = utils.colat2ele(zen_plot_plot)  # For Mollweide, we use elevation
+    
+    Y_smp = spa.sph.sh_matrix(N_sph, azi_plot.ravel(), zen_plot.ravel(), SH_type)
+    if w_n is None:
+        w_n = spa.sph.hypercardioid_modal_weights(N_sph)
+    f_d = Y_smp @ np.diag(spa.sph.repeat_per_order(w_n)) @ F_nm
+    rms_d = np.abs(spa.utils.rms(f_d, axis=1))
+    
+    if INDB:
+        rms_d = spa.utils.db(rms_d)
+    
+    if fig is None:
+        fig = plt.figure(constrained_layout=True)
+    ax = fig.add_subplot(111, projection='mollweide')
+    
+
+    if vmin is not None and vmax is not None:
+        p = ax.pcolormesh(azi_plot_plot, zen_plot_plot, np.reshape(rms_d, azi_plot.shape), shading='auto', vmin=vmin, vmax=vmax)
+        
+    else:
+        p = ax.pcolormesh(azi_plot_plot, zen_plot_plot, np.reshape(rms_d, azi_plot.shape), shading='auto')
+    ax.grid(True)
+
     
     cb = plt.colorbar(p, ax=ax, shrink=0.5)
     cb.set_label("RMS in dB" if INDB else "RMS")

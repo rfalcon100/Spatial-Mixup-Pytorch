@@ -20,6 +20,31 @@ import spaudiopy as spa
 from sphere_fibonacci_grid_points import sphere_fibonacci_grid_points
 
 
+def get_rotation_matrix(rotation_phi, rotation_theta, rotation_psi) -> torch.Tensor:
+    """ Returns a full 3d Rotation matrix, for the given rotation angles phi, thetha, psi
+    that are rotations over:
+    phi --> rotation over x axis (roll)
+    theta --> rotation over y axis (pitch)
+    psi --> rotation over z axis (yaw)
+    
+    Note: This rotates cartesian coordinates.
+    
+    Reference:
+    See: [1] M. Kronlachner, 'Spatial transformations for the alteration of ambisonic recordings.'
+    Equation 2.15
+    """
+    roll = torch.tensor([[1, 0, 0],
+                         [0, np.cos(rotation_phi), -np.sin(rotation_phi)],
+                         [0, np.sin(rotation_phi), np.cos(rotation_phi)]])
+    pitch = torch.tensor([[np.cos(rotation_theta), 0, np.sin(rotation_theta)],
+                          [0, 1, 0],
+                          [-np.sin(rotation_theta), 0, np.cos(rotation_theta)]])
+    yaw = torch.tensor([[np.cos(rotation_psi), -np.sin(rotation_psi), 0],
+                        [np.sin(rotation_psi), np.cos(rotation_psi), 0],
+                        [0, 0, 1]])
+    R = torch.matmul(torch.matmul(roll, pitch), yaw)
+    return R
+
 def colat2ele(colat: Union[float, torch.Tensor]) -> torch.Tensor:
     """Transforms colatitude to elevation (latitude). In radians.
 
