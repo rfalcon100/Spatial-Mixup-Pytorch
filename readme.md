@@ -51,14 +51,15 @@ Then the notebook `demo_spatial_mixup.ipnyb`shows how to use it, and a few exmap
 
 ## Citation
 ```
-@misc{falconperez2021spatial,
-      title={Spatial mixup: Directional loudness modification as data augmentation for sound event localization and detection}, 
-      author={Ricardo Falcon-Perez and Kazuki Shimada and Yuichiro Koyama and Shusuke Takahashi and Yuki Mitsufuji},
-      year={2021},
-      eprint={2110.06126},
-      archivePrefix={arXiv},
-      primaryClass={eess.AS}
-}
+@INPROCEEDINGS{9747312,
+  author={Falc&#x00F3;n-P&#x00E9;rez, Ricardo and Shimada, Kazuki and Koyama, Yuichiro and Takahashi, Shusuke and Mitsufuji, Yuki},
+  booktitle={ICASSP 2022 - 2022 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)}, 
+  title={Spatial Mixup: Directional Loudness Modification as Data Augmentation for Sound Event Localization and Detection}, 
+  year={2022},
+  volume={},
+  number={},
+  pages={431-435},
+  doi={10.1109/ICASSP43922.2022.9747312}}
 ```
 
 <!-- LICENSE -->
