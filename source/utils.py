@@ -186,11 +186,12 @@ def load_SOFA(order, filename='data/HRIR_L2354.sofa', url='http://sofacoustics.o
     from os.path import exists
     import wget
     if not exists(filename):
+        print(f'Attempting to download file {filename} from url {url}')
         response = wget.download(url, filename)
     try:
         irs, fs = spa.IO.sofa_to_sh(filename, order, 'real')
-    except:
-        raise ValueError('Sofa file not found')
+    except Exception as e:
+        raise ValueError('Sofa file not found.') from e
     return irs, fs
 
 
